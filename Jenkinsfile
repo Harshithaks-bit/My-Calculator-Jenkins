@@ -1,38 +1,53 @@
+
 pipeline {
     agent any
-    
-    
-    // Use tools Name configured in Jenkins
+
     tools {
         jdk 'JDK 25'
         maven 'Maven-3.10'
     }
 
-
     stages {
-        stage('SCM Synchronization') {
+
+        stage('Checkout Code') {
             steps {
-                echo '📥 Pulling latest code changes from Git repository...'
+                echo 'Pulling latest code from GitHub...'
                 checkout scm
             }
         }
 
         stage('Static Verification') {
             steps {
-                echo '🔍 Checking Maven project layout rules...'
+                echo 'Validating Maven project...'
                 bat 'mvn validate'
             }
         }
 
-        stage('Compilation & Automated Testing') {
+        stage('Build and Test') {
             steps {
-                echo '⚙️ Compiling class layers and verifying test logic stability...'
-                bat 'mvn clean package'
+                echo 'Compiling code and running unit tests...'
+                bat 'mvn clean verify'
             }
+
             post {
                 always {
-                    echo '📊 Publishing Unit Test trends to Jenkins Dashboard...'
-                    junit '**/target/surefire-reports/*.xml'
+                    echo 'Publishing JUnit test results...'
+                    junit allowEmptyResults: true,
+                          testResults: '**/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                echo 'Starting SonarQube code analysis...'
+
+                withSonarQubeEnv('SonarQube') {
+                    bat '''
+                        mvn sonar:sonar ^
+                        -Dsonar.projectKey=my-first-project ^
+                        -Dsonar.projectName=MyFirstProject
+                    '''
                 }
             }
         }
@@ -40,10 +55,11 @@ pipeline {
 
     post {
         success {
-            echo '✅ CI Pipeline completed flawlessly! Code stability confirmed.'
+            echo 'SUCCESS: Build and SonarQube analysis completed!'
         }
+
         failure {
-            echo '❌ CI Pipeline broken. Check console logs for build failures or breaking test regressions.'
+            echo 'FAILURE: Check Jenkins console output.'
         }
     }
 }
